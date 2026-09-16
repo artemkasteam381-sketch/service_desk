@@ -1,0 +1,27 @@
+# Секреты и локальные настройки
+.env
+.env.*
+!.env.example
+.streamlit/secrets.toml
+
+# Окружение Python
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+
+# Кеши
+.ipynb_checkpoints/
+.pytest_cache/
+
+# Локальные данные
+/data/*
+!/data/README.md
+
+# Обученные модели
+/models/*
+!/models/README.md
+
+# Системные файлы
+.DS_Store
+Thumbs.db
