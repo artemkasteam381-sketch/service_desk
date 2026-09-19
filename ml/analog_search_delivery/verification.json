@@ -1,0 +1,16 @@
+{
+  "tests_passed": 18,
+  "queries": 40,
+  "unique_annotation_pairs": 384,
+  "manual_labels": 0,
+  "empty_queries": 3,
+  "live_bge_tested": true,
+  "cache_alignment_verified": true,
+  "live_cache_cosine": 1.0,
+  "classifier_used": false,
+  "reranker_used": false,
+  "html_javascript_syntax": "passed",
+  "html_browser_visual_check": "blocked by file URL policy",
+  "notebook_default_code_cells": "executed in shared Python namespace; no Jupyter kernel used for this notebook",
+  "quality_winner": null
+}
