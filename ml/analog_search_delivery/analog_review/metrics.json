@@ -1,0 +1,98 @@
+{
+  "summary": {
+    "bge": {
+      "evaluated_queries": 3,
+      "manually_judged_queries": 0,
+      "empty_output_queries": 3,
+      "total_queries": 40,
+      "warm_latency_p50_ms": 0.33400000393157825,
+      "warm_latency_p95_ms": 0.8912297911592758
+    },
+    "bm25": {
+      "evaluated_queries": 3,
+      "manually_judged_queries": 0,
+      "empty_output_queries": 3,
+      "total_queries": 40,
+      "warm_latency_p50_ms": 1.2951669996255077,
+      "warm_latency_p95_ms": 3.6039749997144046
+    },
+    "hybrid": {
+      "evaluated_queries": 3,
+      "manually_judged_queries": 0,
+      "empty_output_queries": 3,
+      "total_queries": 40,
+      "warm_latency_p50_ms": 1.3038329998380505,
+      "warm_latency_p95_ms": 3.562545496970411
+    }
+  },
+  "per_query": {
+    "40703587": {
+      "bm25": {
+        "precision_at_5": 0.0,
+        "useful_at_5": 0.0,
+        "pool_ndcg_at_5": 0.0,
+        "mrr_at_5": 0.0
+      },
+      "bge": {
+        "precision_at_5": 0.0,
+        "useful_at_5": 0.0,
+        "pool_ndcg_at_5": 0.0,
+        "mrr_at_5": 0.0
+      },
+      "hybrid": {
+        "precision_at_5": 0.0,
+        "useful_at_5": 0.0,
+        "pool_ndcg_at_5": 0.0,
+        "mrr_at_5": 0.0
+      }
+    },
+    "40645788": {
+      "bm25": {
+        "precision_at_5": 0.0,
+        "useful_at_5": 0.0,
+        "pool_ndcg_at_5": 0.0,
+        "mrr_at_5": 0.0
+      },
+      "bge": {
+        "precision_at_5": 0.0,
+        "useful_at_5": 0.0,
+        "pool_ndcg_at_5": 0.0,
+        "mrr_at_5": 0.0
+      },
+      "hybrid": {
+        "precision_at_5": 0.0,
+        "useful_at_5": 0.0,
+        "pool_ndcg_at_5": 0.0,
+        "mrr_at_5": 0.0
+      }
+    },
+    "38574578": {
+      "bm25": {
+        "precision_at_5": 0.0,
+        "useful_at_5": 0.0,
+        "pool_ndcg_at_5": 0.0,
+        "mrr_at_5": 0.0
+      },
+      "bge": {
+        "precision_at_5": 0.0,
+        "useful_at_5": 0.0,
+        "pool_ndcg_at_5": 0.0,
+        "mrr_at_5": 0.0
+      },
+      "hybrid": {
+        "precision_at_5": 0.0,
+        "useful_at_5": 0.0,
+        "pool_ndcg_at_5": 0.0,
+        "mrr_at_5": 0.0
+      }
+    }
+  },
+  "resources": {
+    "rss_baseline_mb": 32.890625,
+    "sampled_peak_rss_mb": 97.453125,
+    "process_lifetime_peak_rss_mb": 97.46875,
+    "gpu_memory": "not_measured"
+  },
+  "limitations": "nDCG is relative to the judged pool, not full-corpus recall; unjudged queries excluded; empty outputs score zero, but aggregate quality requires at least one manually judged query",
+  "latency_note": "Cached-query ranking only. EXCLUDES encoder loading and query embedding; not full service latency."
+}

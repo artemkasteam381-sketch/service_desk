@@ -1,0 +1,120 @@
+{
+  "device": "cpu",
+  "torch_threads": 2,
+  "dataset_version": "7946f95eeb31620885c7564daac14100d9165b89e484c450c9e1b6bdfcfdbb10",
+  "model_load_ms": 4615.981959010242,
+  "live_vs_cache_cosine": 1.0,
+  "resources": {
+    "rss_baseline_mb": 193.3125,
+    "sampled_peak_rss_mb": 1767.84375,
+    "process_lifetime_peak_rss_mb": 1767.859375,
+    "gpu_memory": "not_measured"
+  },
+  "measurements": [
+    {
+      "query": "Не приходит СМС с кодом входа в приложение",
+      "method": "bm25",
+      "total": 1.6422920016339049,
+      "query_encoding": 0.0
+    },
+    {
+      "query": "Не приходит СМС с кодом входа в приложение",
+      "method": "bge",
+      "total": 51.0996250086464,
+      "query_encoding": 50.70604200591333
+    },
+    {
+      "query": "Не приходит СМС с кодом входа в приложение",
+      "method": "hybrid",
+      "total": 52.165208995575085,
+      "query_encoding": 50.5178339954
+    },
+    {
+      "query": "Не печатается этикетка для отправления",
+      "method": "bm25",
+      "total": 0.8434170013060793,
+      "query_encoding": 0.0
+    },
+    {
+      "query": "Не печатается этикетка для отправления",
+      "method": "bge",
+      "total": 58.10570900212042,
+      "query_encoding": 57.695916009834036
+    },
+    {
+      "query": "Не печатается этикетка для отправления",
+      "method": "hybrid",
+      "total": 54.77216700091958,
+      "query_encoding": 52.63179200119339
+    },
+    {
+      "query": "После оплаты деньги списались, отправление не создалось",
+      "method": "bm25",
+      "total": 1.1344999948050827,
+      "query_encoding": 0.0
+    },
+    {
+      "query": "После оплаты деньги списались, отправление не создалось",
+      "method": "bge",
+      "total": 60.179583000717685,
+      "query_encoding": 59.75179199595004
+    },
+    {
+      "query": "После оплаты деньги списались, отправление не создалось",
+      "method": "hybrid",
+      "total": 55.135583999799564,
+      "query_encoding": 53.10662499687169
+    },
+    {
+      "query": "Не открывается личный кабинет, ошибка 500",
+      "method": "bm25",
+      "total": 1.0147920111194253,
+      "query_encoding": 0.0
+    },
+    {
+      "query": "Не открывается личный кабинет, ошибка 500",
+      "method": "bge",
+      "total": 57.55012499867007,
+      "query_encoding": 57.168500003172085
+    },
+    {
+      "query": "Не открывается личный кабинет, ошибка 500",
+      "method": "hybrid",
+      "total": 52.98308299097698,
+      "query_encoding": 51.3151659979485
+    },
+    {
+      "query": "Не удается импортировать список отправлений из файла",
+      "method": "bm25",
+      "total": 1.1888750013895333,
+      "query_encoding": 0.0
+    },
+    {
+      "query": "Не удается импортировать список отправлений из файла",
+      "method": "bge",
+      "total": 57.80829201103188,
+      "query_encoding": 57.4380409962032
+    },
+    {
+      "query": "Не удается импортировать список отправлений из файла",
+      "method": "hybrid",
+      "total": 55.522082999232225,
+      "query_encoding": 53.86195800383575
+    }
+  ],
+  "summary": {
+    "bm25": {
+      "warm_p50_ms": 1.1344999948050827,
+      "warm_p95_ms": 1.5516086015850306
+    },
+    "bge": {
+      "warm_p50_ms": 57.80829201103188,
+      "warm_p95_ms": 59.76480820099823
+    },
+    "hybrid": {
+      "warm_p50_ms": 54.77216700091958,
+      "warm_p95_ms": 55.44478319934569
+    }
+  },
+  "limitations": "Only five short queries, sequential batch=1. Includes live query encoding. Not production p95 or human relevance evaluation. Shared model and index memory."
+}

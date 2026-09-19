@@ -1,23 +1,29 @@
 import streamlit as st
 
+from src.ui.dispatcher_tab import render_dispatcher_tab
+from src.ui.analytics_tab import render_analytics_tab
+
+
 st.set_page_config(
-    page_title="Service Desk — помощник",
+    page_title="Анализ обращений поддержки",
+    page_icon="📊",
     layout="wide",
 )
 
-st.title("Помощник Service Desk")
-st.caption("Каркас приложения. Модели и данные пока не подключены.")
 
-analysis_tab, history_tab, dashboard_tab = st.tabs(
-    ["Разбор обращения", "История", "Аналитика"]
-)
+def main():
+    st.title("Анализ обращений технической поддержки")
 
-with analysis_tab:
-    st.text_area("Описание обращения")
-    st.info("Здесь появятся категория, линия поддержки и похожие случаи.")
+    dispatcher_tab, analytics_tab = st.tabs(
+        ["Помощь диспетчеру", "Аналитика обработки"]
+    )
 
-with history_tab:
-    st.info("Здесь появятся исторические обращения и исходные записи.")
+    with dispatcher_tab:
+        render_dispatcher_tab()
 
-with dashboard_tab:
-    st.info("Здесь появятся показатели обработки и SLA.")
+    with analytics_tab:
+        render_analytics_tab()
+
+
+if __name__ == "__main__":
+    main()

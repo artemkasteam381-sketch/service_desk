@@ -1,27 +1,46 @@
-# Секреты и локальные настройки
+# Python virtual environments
+.venv/
+venv/
+
+# Python cache
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Build artifacts
+build/
+dist/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# IDE / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Environment variables / secrets
 .env
 .env.*
 !.env.example
+
 .streamlit/secrets.toml
 
-# Окружение Python
-.venv/
-venv/
-__pycache__/
-*.py[cod]
+# ML model weights / caches
+**/model_cache/
+*.pt
+*.pth
+*.ckpt
+*.safetensors
+*.onnx
 
-# Кеши
-.ipynb_checkpoints/
-.pytest_cache/
+# Generated embeddings
+*.npz
 
-# Локальные данные
-/data/*
-!/data/README.md
-
-# Обученные модели
-/models/*
-!/models/README.md
-
-# Системные файлы
-.DS_Store
-Thumbs.db
+# Temporary files
+*.log
+*.tmp
