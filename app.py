@@ -11,6 +11,9 @@ st.set_page_config(
 )
 
 
+DATA_PATH = "data/processed/appeals_parsed.csv"
+
+
 def main():
     st.title("Анализ обращений технической поддержки")
 
@@ -22,7 +25,7 @@ def main():
         render_dispatcher_tab()
 
     with analytics_tab:
-        render_analytics_tab()
+        render_analytics_tab(DATA_PATH)
 
 
 if __name__ == "__main__":
