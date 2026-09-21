@@ -44,6 +44,19 @@ def prepare_data(path=None):
         errors="coerce",
     )
     df["sla_actual_seconds"] = df["sla_actual_td"].dt.total_seconds()
+    df["clarifications_count"] = pd.to_numeric(
+        df["Количество уточнений"],
+        errors="coerce",
+    )
+
+    df["clarification_time_td"] = pd.to_timedelta(
+        df["Суммарное время уточнений"],
+        errors="coerce",
+    )
+
+    df["clarification_time_seconds"] = (
+        df["clarification_time_td"].dt.total_seconds()
+    )
 
     df["is_overdue"] = df["Просрочен?*"].eq("Просрочен")
     df["service_analytics"] = df["Услуга"].replace(
