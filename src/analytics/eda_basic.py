@@ -1,13 +1,13 @@
 import pandas as pd
 from pathlib import Path
-
+from src.analytics.data_preparation import prepare_data
 
 DATA_PATH = Path("data/raw/original.xlsx")
 OUTPUT_PATH = Path("data/processed/analytics")
 
 
 def load_data():
-    return pd.read_excel(DATA_PATH)
+    return prepare_data()
 
 
 def basic_kpi(df):
@@ -35,7 +35,7 @@ def basic_kpi(df):
 
 def service_analysis(df):
     result = (
-        df["Услуга"]
+        df["service_analytics"]
         .value_counts()
         .reset_index()
     )
@@ -82,27 +82,37 @@ def priority_analysis(df):
 
 
 def processing_time_analysis(df):
-    df = df.copy()
-
-    df["Время обработки"] = pd.to_timedelta(
-        df["Фактическая длительность выполнения запроса (SLA)"],
-        errors="coerce"
-    )
-
     result = (
-        df.groupby("Услуга")
+        df.groupby("service_analytics", dropna=False)
         .agg(
-            Обращения=("Номер запроса", "count"),
-            Среднее_время=("Время обработки", "mean"),
-            Медиана_времени=("Время обработки", "median"),
-            Максимальное_время=("Время обработки", "max")
+            Обращения=("Номер запроса", "nunique"),
+            Обращения_с_временем=("sla_actual_seconds", "count"),
+            Среднее_часов=("sla_actual_seconds", "mean"),
+            Медиана_часов=("sla_actual_seconds", "median"),
+            P90_часов=(
+                "sla_actual_seconds",
+                lambda values: values.quantile(0.9),
+            ),
+            Максимум_часов=("sla_actual_seconds", "max"),
         )
         .reset_index()
+        .rename(columns={"service_analytics": "Услуга"})
     )
 
+    result["Пропуски_времени"] = (
+        result["Обращения"] - result["Обращения_с_временем"]
+    )
+
+    time_columns = [
+        "Среднее_часов",
+        "Медиана_часов",
+        "P90_часов",
+        "Максимум_часов",
+    ]
+
+    result[time_columns] = (result[time_columns] / 3600).round(2)
+
     return result
-
-
 if __name__ == "__main__":
 
     OUTPUT_PATH.mkdir(parents=True, exist_ok=True)
