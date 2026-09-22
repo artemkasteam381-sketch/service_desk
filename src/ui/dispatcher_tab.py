@@ -12,6 +12,7 @@ import streamlit as st
 import re
 
 from src.classification.ui import render_classification_panel
+from src.integrations.support_service import SupportServiceError, predict_support
 
 
 # Те же регистрационные поля, что в текущем экспорте классификатора.
@@ -24,6 +25,8 @@ REGISTRATION_FIELDS = (
 )
 _HISTORY = 'dispatcher_history_data'
 _ACTIVE = 'dispatcher_active_card'
+_SUPPORT_RESULT = 'dispatcher_support_result'
+_SUPPORT_FINGERPRINT = 'dispatcher_support_fingerprint'
 
 
 _MISSING_VALUES = {
@@ -106,6 +109,68 @@ def _source_record(record):
             if field in record:
                 st.text(field)
                 st.text(_value(record[field]) or 'Не заполнено')
+
+
+def _card_fingerprint(card):
+    """Не показывать результат, рассчитанный для уже изменённой карточки."""
+    payload = '\0'.join(str(card.get(key, '')) for key in (
+        'Описание', 'Услуга', 'Тип запроса',
+        'Компонент услуги 1 уровня', 'Пользователь',
+    ))
+    return sha256(payload.encode('utf-8')).hexdigest()
+
+
+def _render_support_result(result):
+    line = result.get('recommended_line')
+    scores = result.get('scores') or {}
+
+    if line:
+        confidence = scores.get(line)
+        if isinstance(confidence, Real):
+            st.success(f'Рекомендуемая линия: {line} · оценка {float(confidence):.1%}')
+        else:
+            st.success(f'Рекомендуемая линия: {line}')
+    else:
+        st.warning('Сервис не смог подобрать линию поддержки.')
+
+    if scores:
+        score_rows = [
+            {'Линия': str(name), 'Оценка модели': float(score)}
+            for name, score in scores.items() if isinstance(score, Real)
+        ]
+        score_rows.sort(key=lambda row: row['Оценка модели'], reverse=True)
+        with st.expander('Оценки всех линий'):
+            st.dataframe(score_rows, hide_index=True, width='stretch',
+                         column_config={
+                             'Оценка модели': st.column_config.ProgressColumn(
+                                 min_value=0.0, max_value=1.0, format='%.3f'
+                             )
+                         })
+
+    for note in result.get('notes') or []:
+        if str(note).strip():
+            st.caption(str(note))
+
+    st.markdown('#### Похожие обращения')
+    analogs = result.get('analogs') or []
+    if not analogs:
+        st.info('Похожие обращения не найдены.')
+        return
+
+    for index, analog in enumerate(analogs, start=1):
+        ticket_id = analog.get('id', 'без номера')
+        analog_line = analog.get('line') or 'линия не указана'
+        with st.expander(f'{index}. Обращение {ticket_id} · {analog_line}',
+                         expanded=index == 1):
+            if analog.get('category'):
+                st.write('**Вид обращения:**', analog['category'])
+            st.write(analog.get('text') or 'Описание отсутствует.')
+            st.write('**Результат работ:**', analog.get('result') or 'Не указан.')
+            score = analog.get('score')
+            if isinstance(score, Real):
+                st.caption(f'Оценка сходства cross-encoder: {float(score):.3f}')
+            if analog.get('source_url'):
+                st.markdown(f"[Открыть исходную запись]({analog['source_url']})")
 
 
 def _choose_history_record():
@@ -217,3 +282,29 @@ def render_dispatcher_tab():
     if selected is not None:
         card['Номер запроса'] = _ticket_number(selected.get('Номер запроса'))
     st.session_state['dispatcher_registration_card'] = card
+
+    st.divider()
+    st.subheader('Маршрутизация и похожие обращения')
+    st.caption('Линия определяется по описанию и регистрационным полям; аналоги — по смысловой близости текста.')
+
+    fingerprint = _card_fingerprint(card)
+    if st.button('Рекомендовать линию и найти похожие',
+                 type='primary', key='dispatcher_run_support'):
+        metadata = {
+            field: card.get(field, '')
+            for field in ('Услуга', 'Тип запроса', 'Компонент услуги 1 уровня', 'Пользователь')
+        }
+        try:
+            with st.spinner('Подбираем линию и похожие обращения…'):
+                result = predict_support(card.get('Описание', ''), metadata)
+        except SupportServiceError as exc:
+            st.session_state.pop(_SUPPORT_RESULT, None)
+            st.session_state.pop(_SUPPORT_FINGERPRINT, None)
+            st.error(str(exc))
+        else:
+            st.session_state[_SUPPORT_RESULT] = result
+            st.session_state[_SUPPORT_FINGERPRINT] = fingerprint
+
+    if (st.session_state.get(_SUPPORT_RESULT) is not None
+            and st.session_state.get(_SUPPORT_FINGERPRINT) == fingerprint):
+        _render_support_result(st.session_state[_SUPPORT_RESULT])

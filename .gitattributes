@@ -1,1 +1,6 @@
 *.joblib filter=lfs diff=lfs merge=lfs -text
+*.safetensors filter=lfs diff=lfs merge=lfs -text
+*.npy filter=lfs diff=lfs merge=lfs -text
+ml/support_service_weights/models/**/tokenizer.json filter=lfs diff=lfs merge=lfs -text
+models/classification/*.py text eol=lf
+models/classification/requirements_versions.txt text eol=lf

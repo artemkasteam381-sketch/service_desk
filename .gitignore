@@ -44,3 +44,8 @@ Thumbs.db
 # Temporary files
 *.log
 *.tmp
+/.venv-app/
+/.venv-routing/
+!ml/support_service_weights/models/**/*.safetensors
+/ml/support_service_weights/models/bge-m3/
+/ml/support_service_weights/models/reranker/

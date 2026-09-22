@@ -1,0 +1,109 @@
+{
+  "preprocess_version": "classification_essence_first_v1",
+  "dataset_sha256": "daf742da6bb5902149585a05a3e38a2c655347cf6001f9cae640e1f27069ac40",
+  "source_preprocess_sha256": "f56f14ba39b8bb200539d591b483c5a19137132def90fbdab8ef9b19728dab07",
+  "rows": 1931,
+  "training_rows": 1892,
+  "groups": 1781,
+  "excluded_possible_outcome_rows": 38,
+  "bge_model": "BAAI/bge-m3",
+  "bge_revision": "5617a9f61b028005a4858fdac845db406aefb181",
+  "reranker_model": "cross-encoder/mmarco-mMiniLMv2-L12-H384-v1",
+  "reranker_revision": "1427fd652930e4ba29e8149678df786c240d8825",
+  "lr_config": {
+    "C": 1.0,
+    "solver": "lbfgs",
+    "class_weight": null,
+    "max_iter": 3000,
+    "random_state": 42
+  },
+  "fields": [
+    "Услуга",
+    "Тип запроса",
+    "Компонент услуги 1 уровня",
+    "Пользователь"
+  ],
+  "versions": {
+    "numpy": "2.1.3",
+    "pandas": "2.2.3",
+    "scipy": "1.16.3",
+    "scikit-learn": "1.6.1",
+    "joblib": "1.6.0",
+    "torch": "2.11.0+cu128",
+    "sentence-transformers": "5.7.0",
+    "transformers": "5.16.1",
+    "tokenizers": "0.23.1",
+    "safetensors": "0.8.0",
+    "huggingface-hub": "1.29.0",
+    "sentencepiece": "0.2.2"
+  },
+  "metrics": [
+    {
+      "model": "base",
+      "scope": "all_lines",
+      "weighting": "row",
+      "accuracy": 0.7764270613107822,
+      "weighted_f1": 0.7647001207720806,
+      "macro_f1": 0.5270050425632266
+    },
+    {
+      "model": "base",
+      "scope": "all_lines",
+      "weighting": "group",
+      "accuracy": 0.7668912595919894,
+      "weighted_f1": 0.7550821208603662,
+      "macro_f1": 0.5233352242335954
+    },
+    {
+      "model": "base",
+      "scope": "lines_1_3",
+      "weighting": "row",
+      "accuracy": 0.7768376520359598,
+      "weighted_f1": 0.765307011180974,
+      "macro_f1": 0.7034423251092924
+    },
+    {
+      "model": "base",
+      "scope": "lines_1_3",
+      "weighting": "group",
+      "accuracy": 0.7673220973782771,
+      "weighted_f1": 0.7557203266256469,
+      "macro_f1": 0.6985545350377599
+    },
+    {
+      "model": "text",
+      "scope": "all_lines",
+      "weighting": "row",
+      "accuracy": 0.735200845665962,
+      "weighted_f1": 0.7059784003987956,
+      "macro_f1": 0.42022703870181793
+    },
+    {
+      "model": "text",
+      "scope": "all_lines",
+      "weighting": "group",
+      "accuracy": 0.7253415684072619,
+      "weighted_f1": 0.6951063253795118,
+      "macro_f1": 0.41698796577178154
+    },
+    {
+      "model": "text",
+      "scope": "lines_1_3",
+      "weighting": "row",
+      "accuracy": 0.7355896351136965,
+      "weighted_f1": 0.7065542294777273,
+      "macro_f1": 0.5604107031500439
+    },
+    {
+      "model": "text",
+      "scope": "lines_1_3",
+      "weighting": "group",
+      "accuracy": 0.725749063670412,
+      "weighted_f1": 0.6957085895308088,
+      "macro_f1": 0.5560995220042363
+    }
+  ],
+  "rare_line_note": "Четвёртая линия: крайне мало примеров; её качество не установлено.",
+  "search_evaluation": "Поиск после смены предобработки требует отдельной разметки релевантности.",
+  "historical_metrics_comparable": false
+}
