@@ -1,4 +1,9 @@
-# Файлы модели размещаются на сервере отдельно от исходного кода репозитория.
-*
-!.gitignore
-!README.md
+# Python cache
+__pycache__/
+*.pyc
+
+# Обученные веса модели хранятся отдельно
+stacking_bundle.joblib
+
+# Экспортированный архив модели
+classification_model.zip
