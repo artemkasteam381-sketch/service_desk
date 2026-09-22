@@ -12,6 +12,7 @@ from src.analytics.clarification_analysis import (
     clarification_distribution,
 )
 from src.analytics.sla_risk import calculate_risk, line_risk
+from src.analytics.filters import filter_data
 
 
 def test_prepared_data():
@@ -114,3 +115,35 @@ def test_sla_risk():
         lines["Линия"].eq("4 линия"),
         "Малая выборка",
     ].all()
+
+
+
+def test_filters():
+    df = prepare_data()
+
+    assert len(filter_data(df)) == 1931
+    assert len(filter_data(
+        df,
+        services=["Портал pochta.ru"],
+    )) == 620
+    assert len(filter_data(
+        df,
+        request_types=["Личный кабинет"],
+    )) == 44
+    assert len(filter_data(
+        df,
+        priorities=["(2) Высокий"],
+    )) == 111
+    assert len(filter_data(
+        df,
+        lines=["4 линия"],
+    )) == 5
+
+    first_date = df["Дата регистрации"].min().date()
+    expected = df["Дата регистрации"].dt.date.eq(first_date).sum()
+
+    assert len(filter_data(
+        df,
+        start_date=first_date,
+        end_date=first_date,
+    )) == expected
