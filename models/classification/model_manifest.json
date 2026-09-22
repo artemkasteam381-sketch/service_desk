@@ -1,0 +1,21 @@
+{
+  "format_version": 1,
+  "model_file": "stacking_bundle.joblib",
+  "experiment": "essence_first_256",
+  "meta_kind": "catboost_confidence",
+  "stack_feature_version": "confidence_agreement_v1",
+  "source_sha256": "daf742da6bb5902149585a05a3e38a2c655347cf6001f9cae640e1f27069ac40",
+  "rubert_model": "cointegrated/rubert-tiny2",
+  "rubert_revision": "main",
+  "rubert_text_mode": "essence_first",
+  "rubert_max_length": 256,
+  "tfidf_text_mode": "full_plus_essence",
+  "files_sha256": {
+    "stacking_bundle.joblib": "04b193653f7d0e4eb4a7b35f78e42e220a2b5b56e4b0d45589a5a2020666c311",
+    "inference.py": "f56f14ba39b8bb200539d591b483c5a19137132def90fbdab8ef9b19728dab07",
+    "stacking_features.py": "d0f3a4de4e8bbfbb62abfa3949f7f9b4a9bb713bc974480f2637ad17e3f57697",
+    "stacking_inference.py": "a5230d5788b047698f2ee1404515d6207a3238df33013aea673e3a36db68dbb2",
+    "requirements_versions.txt": "58bb44558a35eedba770fd4441e663dacc4c9d62c4b2900cd05ac844cc74a8cf",
+    "__init__.py": "6924bd977a33ef8aedf5d2538904c8bfc8576d1c40da6a7aaaa397f6d19815bd"
+  }
+}
