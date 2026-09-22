@@ -2,8 +2,5 @@
 __pycache__/
 *.pyc
 
-# Обученные веса модели хранятся отдельно
-stacking_bundle.joblib
-
 # Экспортированный архив модели
 classification_model.zip
