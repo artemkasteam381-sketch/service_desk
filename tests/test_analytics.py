@@ -244,3 +244,24 @@ def test_sla_risk_confidence_rules():
         "Ошибки загрузки страницы/зависания",
         "Формирование и закрытие емкостей",
     }
+
+
+
+def test_case_details():
+    from src.analytics.case_details import (
+        many_clarifications_cases,
+        multiline_cases,
+    )
+
+    df = prepare_data()
+
+    multiline = multiline_cases(df)
+    clarifications = many_clarifications_cases(df)
+
+    assert len(multiline) == 614
+    assert multiline["Номер запроса"].is_unique
+    assert set(multiline["Количество линий"]) == {2, 3, 4}
+
+    assert len(clarifications) == 75
+    assert clarifications["Номер запроса"].is_unique
+    assert clarifications["Количество уточнений"].min() >= 4
