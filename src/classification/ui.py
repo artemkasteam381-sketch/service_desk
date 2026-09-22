@@ -388,6 +388,17 @@ def _select_value(
     """
     Dropdown с пустым вариантом.
     """
+    options = list(options)
+
+    current_value = st.session_state.get(key)
+
+    if (
+        current_value
+        and current_value != "Не указано"
+        and current_value not in options
+    ):
+        options = [current_value, *options]
+        
     selected = st.selectbox(
         label,
         ["Не указано", *options],
@@ -621,14 +632,14 @@ def render_classification_panel() -> None:
                 service = _render_input_field(
                     "Услуга",
                     reference_options,
-                    key="classification_service",
+                    key="classification_Услуга",
                 )
 
             with type_col:
                 request_type = _render_input_field(
                     "Тип запроса",
                     reference_options,
-                    key="classification_request_type",
+                    key="classification_Тип запроса",
                     help_text=(
                         "Регистрационный признак исходной карточки. "
                         "Это НЕ тот же параметр, что «Вид обращения», "
@@ -640,7 +651,7 @@ def render_classification_panel() -> None:
                 priority = _render_input_field(
                     "Приоритет",
                     reference_options,
-                    key="classification_priority",
+                    key="classification_Приоритет",
                 )
 
             # ---------------------------------------------------------
@@ -721,10 +732,7 @@ def render_classification_panel() -> None:
                                 _render_input_field(
                                     field,
                                     reference_options,
-                                    key=(
-                                        "classification_extra_"
-                                        f"{index}"
-                                    ),
+                                    key="classification_" + field,
                                 )
                             )
 
