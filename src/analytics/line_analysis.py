@@ -1,5 +1,6 @@
 import pandas as pd
 from pathlib import Path
+from src.analytics.data_preparation import prepare_data
 
 
 DATA_PATH = Path("data/raw/original.xlsx")
@@ -7,76 +8,42 @@ OUTPUT_PATH = Path("data/processed/analytics")
 
 
 def load_data():
-    return pd.read_excel(DATA_PATH)
-
+    return prepare_data()
 
 def analyze_lines(df):
-
-    df = df.copy()
-
-    line_columns = [
-        "Суммарное время работы 1 линии",
-        "Суммарное время работы 2 линии",
-        "Суммарное время работы 3 линии",
-        "Суммарное время работы 4 линии",
-    ]
-
-    for i, col in enumerate(line_columns, start=1):
-        df[f"line_{i}_used"] = (
-            pd.to_timedelta(df[col], errors="coerce")
-            .fillna(pd.Timedelta(0))
-            > pd.Timedelta(0)
-        )
-
-    df["Количество участвовавших линий"] = (
-        df[
-            [
-                "line_1_used",
-                "line_2_used",
-                "line_3_used",
-                "line_4_used",
-            ]
-        ]
-        .sum(axis=1)
-    )
-
     result = (
-        df["Количество участвовавших линий"]
+        df["recorded_lines_count"]
         .value_counts()
         .sort_index()
-        .reset_index()
+        .rename_axis("Количество линий с зафиксированным временем")
+        .reset_index(name="Количество обращений")
     )
-
-    result.columns = [
-        "Количество линий",
-        "Количество обращений"
-    ]
 
     return result
 
 
 def line_work_time(df):
-
     result = []
+    total = len(df)
 
-    lines = {
-        "1 линия": "Суммарное время работы 1 линии",
-        "2 линия": "Суммарное время работы 2 линии",
-        "3 линия": "Суммарное время работы 3 линии",
-        "4 линия": "Суммарное время работы 4 линии",
-    }
+    for line_number in range(1, 5):
+        flag_column = f"line_{line_number}_recorded"
+        time_column = f"line_{line_number}_time_td"
 
-    for name, column in lines.items():
-
-        time = pd.to_timedelta(
-            df[column],
-            errors="coerce"
+        seconds = (
+            df.loc[df[flag_column], time_column]
+            .dt.total_seconds()
         )
 
         result.append({
-            "Линия": name,
-            "Среднее время работы": time.mean(),
-            "Медианное время работы": time.median()
+            "Линия": f"{line_number} линия",
+            "Всего обращений": total,
+            "С зафиксированным временем": len(seconds),
+            "Доля обращений (%)": round(len(seconds) / total * 100, 2),
+            "Среднее часов": round(seconds.mean() / 3600, 2),
+            "Медиана часов": round(seconds.median() / 3600, 2),
+            "P90 часов": round(seconds.quantile(0.9) / 3600, 2),
+            "Максимум часов": round(seconds.max() / 3600, 2),
         })
 
     return pd.DataFrame(result)
