@@ -1,13 +1,13 @@
 import pandas as pd
 from pathlib import Path
-
+from src.analytics.data_preparation import prepare_data
 
 DATA_PATH = Path("data/raw/original.xlsx")
 OUTPUT_PATH = Path("data/processed/analytics")
 
 
 def load_data():
-    return pd.read_excel(DATA_PATH)
+    return prepare_data()
 
 
 def calculate_risk(df, group_column):
@@ -16,7 +16,7 @@ def calculate_risk(df, group_column):
         df.groupby(group_column)
         .agg(
             Обращения=("Номер запроса", "count"),
-            Просрочки=("Просрочен?*", lambda x: (x == "Просрочен").sum())
+            Просрочки=("is_overdue", "sum")
         )
         .reset_index()
     )
@@ -26,7 +26,8 @@ def calculate_risk(df, group_column):
         / result["Обращения"]
         * 100
     ).round(2)
-
+    result["Малая выборка"] = result["Обращения"] < 30
+    
     return (
         result
         .sort_values(
@@ -41,23 +42,17 @@ def line_risk(df):
     df = df.copy()
 
     lines = {
-        "1 линия": "Суммарное время работы 1 линии",
-        "2 линия": "Суммарное время работы 2 линии",
-        "3 линия": "Суммарное время работы 3 линии",
-        "4 линия": "Суммарное время работы 4 линии",
+        "1 линия": "line_1_recorded",
+        "2 линия": "line_2_recorded",
+        "3 линия": "line_3_recorded",
+        "4 линия": "line_4_recorded",
     }
 
     result = []
 
     for line, column in lines.items():
 
-        used = (
-            pd.to_timedelta(
-                df[column],
-                errors="coerce"
-            )
-            > pd.Timedelta(0)
-        )
+        used = df[column]
 
         subset = df[used]
 
@@ -79,6 +74,8 @@ def line_risk(df):
         * 100
     ).round(2)
 
+    result["Малая выборка"] = result["Обращения"] < 30
+
     return result
 
 
@@ -94,9 +91,11 @@ if __name__ == "__main__":
 
     service = calculate_risk(
         df,
-        "Услуга"
+        "service_analytics"
     )
-
+    service = service.rename(
+        columns={"service_analytics": "Услуга"}
+    )
     request_type = calculate_risk(
         df,
         "Вид запроса"
