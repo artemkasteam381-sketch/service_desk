@@ -147,3 +147,28 @@ def test_filters():
         start_date=first_date,
         end_date=first_date,
     )) == expected
+
+
+def test_data_quality_flags():
+    from src.analytics.data_quality import (
+        build_quality_flags,
+        issue_records,
+        quality_summary,
+    )
+
+    df = prepare_data()
+    flags = build_quality_flags(df)
+
+    counts = (
+        quality_summary(flags)
+        .set_index("Проверка")["Количество"]
+        .to_dict()
+    )
+
+    assert counts["Нет длительности SLA"] == 1
+    assert counts["Неопределённая услуга"] == 19
+    assert counts["Нет времени линий"] == 372
+    assert counts["Уточнения без времени"] == 57
+    assert counts["Расхождение с длительностью SLA"] == 5
+    assert counts["Расхождение с крайним сроком"] == 3
+    assert len(issue_records(flags)) == 431
