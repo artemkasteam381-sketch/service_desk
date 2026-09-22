@@ -9,13 +9,13 @@ from pathlib import Path
 from time import perf_counter
 
 import pandas as pd
+import plotly.graph_objects as go
 import streamlit as st
 
 from src.analytics.charts import (
     make_breakdown_chart,
     make_problem_summary_chart,
     make_sla_risk_chart,
-    make_timeseries_chart,
 )
 from src.analytics.data import (
     AnalyticsDataError,
@@ -180,6 +180,57 @@ ANALYTICS_CSS = r"""
     line-height: 1.45;
 }
 
+
+/* Compact cards for overview small-multiples and dynamics insights. */
+.mini-chart-title {
+    color: #F0F3F8;
+    font-size: 1rem;
+    font-weight: 700;
+    margin-bottom: 2px;
+}
+.mini-chart-value {
+    color: #F7F9FC;
+    font-size: 1.45rem;
+    font-weight: 760;
+    line-height: 1.1;
+    margin-bottom: 2px;
+}
+.mini-chart-note {
+    color: #8E9AAF;
+    font-size: 0.76rem;
+    margin-bottom: 3px;
+}
+.insight-stack-title {
+    color: #F0F3F8;
+    font-size: 1rem;
+    font-weight: 720;
+    margin: 2px 0 8px 0;
+}
+.insight-card {
+    border: 1px solid rgba(132, 148, 171, 0.20);
+    border-radius: 11px;
+    background: linear-gradient(145deg, rgba(23,31,44,0.93), rgba(15,22,32,0.93));
+    padding: 12px 13px;
+    margin-bottom: 9px;
+}
+.insight-label {
+    color: #8E9AAF;
+    font-size: 0.75rem;
+    margin-bottom: 3px;
+}
+.insight-value {
+    color: #F4F7FB;
+    font-size: 1.22rem;
+    font-weight: 750;
+    line-height: 1.1;
+}
+.insight-note {
+    color: #9AA6B9;
+    font-size: 0.72rem;
+    margin-top: 4px;
+    line-height: 1.3;
+}
+
 /* Reduce vertical noise of default Streamlit separators. */
 hr { margin: 0.65rem 0 0.9rem 0; }
 
@@ -251,11 +302,344 @@ def _kpi_card(label: str, main: str, *, secondary: str | None = None, accent: st
     st.markdown(
         f"""
         <div class="kpi-card">
-            <div class="kpi-label">{escape(label)} <span class="kpi-info" title="Показатель рассчитан после применения всех выбранных фильтров.">i</span></div>
+            <div class="kpi-label">{escape(label)} <span class="kpi-info">i</span></div>
             <div class="kpi-value">{escape(main)}{secondary_html}</div>
         </div>
         """,
         unsafe_allow_html=True,
+    )
+
+
+
+# Technical placeholders found in source systems. They are never useful as
+# user-facing categories; the UI exposes a single readable value instead.
+_PLACEHOLDER_TEXT = {
+    "", "-", "--", "---", "--)", "---)",
+    "nan", "none", "null", "не определена", "не определено",
+    "не указан", "не указано", "не указана",
+}
+_CATEGORY_COLUMNS = ("service", "request_type", "priority", "status", "final_line")
+_RESAMPLE_FREQ = {"day": "D", "week": "W-MON", "month": "MS"}
+_RU_MONTHS = {
+    1: "Янв", 2: "Фев", 3: "Мар", 4: "Апр", 5: "Май", 6: "Июн",
+    7: "Июл", 8: "Авг", 9: "Сен", 10: "Окт", 11: "Ноя", 12: "Дек",
+}
+
+
+def _is_placeholder(value: object) -> bool:
+    if value is None or pd.isna(value):
+        return True
+    text = str(value).strip()
+    if text.casefold() in _PLACEHOLDER_TEXT:
+        return True
+    # Catch technical values such as --), ---), ––) without touching real names.
+    return bool(__import__("re").fullmatch(r"[-–—]+\)?", text))
+
+
+def _normalize_display_categories(df: pd.DataFrame) -> pd.DataFrame:
+    """Collapse technical placeholder categories to one user-facing value."""
+    out = df.copy()
+    for column in _CATEGORY_COLUMNS:
+        if column not in out.columns:
+            continue
+        values = out[column].astype("string").str.strip()
+        mask = values.isna() | values.map(_is_placeholder)
+        values = values.mask(mask, "Не указано")
+        out[column] = values
+    return out
+
+
+def _period_label(value: object, granularity: str) -> str:
+    if value is None or pd.isna(value):
+        return "—"
+    ts = pd.Timestamp(value)
+    if granularity == "month":
+        return f"{_RU_MONTHS[ts.month]} {ts.year}"
+    if granularity == "week":
+        return f"с {ts:%d.%m.%Y}"
+    return f"{ts:%d.%m.%Y}"
+
+
+def _timeseries_details(df: pd.DataFrame, *, metric: str, granularity: str) -> pd.DataFrame:
+    """Return the chart metric together with the denominator N for every period."""
+    columns = ["period", "value", "n", "numerator"]
+    if df.empty or "created_at" not in df.columns:
+        return pd.DataFrame(columns=columns)
+
+    freq = _RESAMPLE_FREQ[granularity]
+    work = df.loc[df["created_at"].notna()].copy()
+    if work.empty:
+        return pd.DataFrame(columns=columns)
+    work = work.set_index("created_at").sort_index()
+
+    if metric == "requests":
+        value = work.resample(freq, label="left", closed="left").size().astype(float)
+        n = value.astype(int)
+        numerator = n.astype(float)
+    elif metric == "overdue_rate":
+        numeric = work["is_overdue"].astype("Float64")
+        grouped = numeric.resample(freq, label="left", closed="left")
+        n = grouped.count().astype(int)
+        numerator = grouped.sum(min_count=1).astype(float)
+        value = grouped.mean() * 100.0
+    elif metric == "median_duration":
+        numeric = pd.to_numeric(work["duration_hours"], errors="coerce")
+        grouped = numeric.resample(freq, label="left", closed="left")
+        n = grouped.count().astype(int)
+        numerator = pd.Series(float("nan"), index=n.index)
+        value = grouped.median()
+    else:
+        raise ValueError(f"Unknown timeseries metric: {metric}")
+
+    result = pd.concat(
+        [value.rename("value"), n.rename("n"), numerator.rename("numerator")],
+        axis=1,
+    ).reset_index().rename(columns={"created_at": "period"})
+    result.loc[result["n"].eq(0), "value"] = pd.NA
+    return result[columns]
+
+
+def _metric_text(metric: str, value: float | int | None) -> str:
+    if value is None or pd.isna(value):
+        return "Нет данных"
+    if metric == "requests":
+        return _fmt_int(value)
+    if metric == "overdue_rate":
+        return _fmt_float(float(value), "%", digits=1)
+    return _fmt_float(float(value), " ч", digits=1)
+
+
+def _overall_metric(df: pd.DataFrame, metric: str) -> tuple[float | None, str]:
+    if df.empty:
+        return None, "N = 0"
+    if metric == "requests":
+        return float(len(df)), f"N = {len(df):,}".replace(",", " ")
+    if metric == "overdue_rate":
+        known = df["is_overdue"].dropna()
+        if known.empty:
+            return None, "Нет обращений с известным статусом"
+        overdue = int(known.fillna(False).sum())
+        rate = overdue / len(known) * 100.0
+        return rate, f"{overdue} из {len(known)} обращений"
+    duration = pd.to_numeric(df["duration_hours"], errors="coerce").dropna()
+    if duration.empty:
+        return None, "Нет обращений с рассчитанной длительностью"
+    return float(duration.median()), f"N = {len(duration):,}".replace(",", " ")
+
+
+def _change_note(metric: str, current: float | None, previous: float | None) -> str:
+    if current is None or previous is None or pd.isna(current) or pd.isna(previous):
+        return "Нет данных для сравнения"
+    if metric == "overdue_rate":
+        delta = float(current) - float(previous)
+        sign = "+" if delta > 0 else ""
+        return f"{sign}{delta:.1f} п.п. к предыдущему периоду".replace(".", ",")
+    if metric == "median_duration":
+        delta = float(current) - float(previous)
+        sign = "+" if delta > 0 else ""
+        return f"{sign}{delta:.1f} ч к предыдущему периоду".replace(".", ",")
+    if float(previous) == 0:
+        return "Предыдущий период = 0"
+    delta_pct = (float(current) / float(previous) - 1.0) * 100.0
+    sign = "+" if delta_pct > 0 else ""
+    return f"{sign}{delta_pct:.1f}% к предыдущему периоду".replace(".", ",")
+
+
+def _base_timeseries_layout(fig: go.Figure, *, height: int, y_title: str = "") -> go.Figure:
+    fig.update_layout(
+        height=height,
+        margin=dict(l=42, r=16, t=12, b=38),
+        paper_bgcolor="rgba(0,0,0,0)",
+        plot_bgcolor="rgba(0,0,0,0)",
+        font=dict(color="#B7C1D1", size=12),
+        hovermode="x unified",
+        showlegend=False,
+    )
+    fig.update_xaxes(
+        showgrid=False,
+        linecolor="rgba(132,148,171,0.20)",
+        tickfont=dict(color="#8FA0B8"),
+    )
+    fig.update_yaxes(
+        title=y_title,
+        gridcolor="rgba(132,148,171,0.13)",
+        zeroline=False,
+        tickfont=dict(color="#8FA0B8"),
+        title_font=dict(color="#8FA0B8"),
+    )
+    return fig
+
+
+def _make_metric_figure(
+    series: pd.DataFrame,
+    *,
+    metric: str,
+    granularity: str,
+    height: int,
+    previous: pd.DataFrame | None = None,
+    compact: bool = False,
+) -> go.Figure:
+    """Readable charts: counts=line, overdue=bars, duration=line with explicit gaps."""
+    fig = go.Figure()
+    x = series.get("period", pd.Series(dtype="datetime64[ns]"))
+
+    if metric == "overdue_rate":
+        custom = series[["n", "numerator"]].to_numpy() if not series.empty else None
+        fig.add_trace(
+            go.Bar(
+                x=x,
+                y=series.get("value"),
+                name="Текущий период",
+                marker_color="#FF5C62",
+                opacity=0.88,
+                customdata=custom,
+                hovertemplate=(
+                    "%{x|%d.%m.%Y}<br>"
+                    "Доля просрочек: %{y:.1f}%<br>"
+                    "Просрочено: %{customdata[1]:.0f}<br>"
+                    "N с известным статусом: %{customdata[0]:.0f}<extra></extra>"
+                ),
+            )
+        )
+        if previous is not None and not previous.empty:
+            fig.add_trace(
+                go.Bar(
+                    x=previous["period"],
+                    y=previous["value"],
+                    name="Предыдущий период",
+                    marker_color="rgba(151,165,186,0.42)",
+                    customdata=previous[["n", "numerator"]].to_numpy(),
+                    hovertemplate=(
+                        "Предыдущий период<br>"
+                        "Доля просрочек: %{y:.1f}%<br>"
+                        "N: %{customdata[0]:.0f}<extra></extra>"
+                    ),
+                )
+            )
+            fig.update_layout(barmode="group", showlegend=True)
+        _base_timeseries_layout(fig, height=height, y_title="Просрочено, %")
+        fig.update_yaxes(ticksuffix="%", rangemode="tozero")
+    else:
+        if metric == "requests":
+            color = "#3D8BFF"
+            y_title = "Обращения, шт."
+            hover_value = "Обращений: %{y:.0f}"
+            fill = "tozeroy"
+        else:
+            color = "#8B6CFF"
+            y_title = "Медиана, ч"
+            hover_value = "Медиана: %{y:.1f} ч"
+            fill = "tozeroy" if compact else None
+
+        fig.add_trace(
+            go.Scatter(
+                x=x,
+                y=series.get("value"),
+                mode="lines+markers",
+                name="Текущий период",
+                line=dict(color=color, width=2.5),
+                marker=dict(size=7, color=color, line=dict(color="#F5F7FA", width=1)),
+                fill=fill,
+                fillcolor=("rgba(61,139,255,0.10)" if metric == "requests" else "rgba(139,108,255,0.09)"),
+                connectgaps=False,
+                customdata=series[["n"]].to_numpy() if not series.empty else None,
+                hovertemplate=(
+                    "%{x|%d.%m.%Y}<br>" + hover_value + "<br>N: %{customdata[0]:.0f}<extra></extra>"
+                ),
+            )
+        )
+        if previous is not None and not previous.empty:
+            fig.add_trace(
+                go.Scatter(
+                    x=previous["period"],
+                    y=previous["value"],
+                    mode="lines+markers",
+                    name="Предыдущий период",
+                    line=dict(color="#91A0B7", width=2, dash="dash"),
+                    marker=dict(size=6, color="#91A0B7"),
+                    connectgaps=False,
+                    customdata=previous[["n"]].to_numpy(),
+                    hovertemplate=(
+                        "Предыдущий период<br>" + hover_value + "<br>N: %{customdata[0]:.0f}<extra></extra>"
+                    ),
+                )
+            )
+            fig.update_layout(showlegend=True)
+        _base_timeseries_layout(fig, height=height, y_title=y_title)
+        fig.update_yaxes(rangemode="tozero")
+
+    if not compact and not series.empty:
+        tickvals = series["period"].tolist()
+        ticktext = [_period_label(v, granularity) for v in tickvals]
+        fig.update_xaxes(tickmode="array", tickvals=tickvals, ticktext=ticktext)
+    elif compact:
+        fig.update_xaxes(nticks=5)
+
+    if previous is not None and not previous.empty:
+        fig.update_layout(
+            legend=dict(
+                orientation="h", yanchor="bottom", y=1.02, xanchor="left", x=0,
+                font=dict(color="#AAB5C5", size=11),
+                bgcolor="rgba(0,0,0,0)",
+            )
+        )
+    return fig
+
+
+def _insight_card(label: str, value: str, note: str = "") -> None:
+    note_html = f'<div class="insight-note">{escape(note)}</div>' if note else ""
+    st.markdown(
+        f'<div class="insight-card">'
+        f'<div class="insight-label">{escape(label)}</div>'
+        f'<div class="insight-value">{escape(value)}</div>'
+        f'{note_html}</div>',
+        unsafe_allow_html=True,
+    )
+
+
+def _render_metric_insights(
+    filtered: pd.DataFrame,
+    series: pd.DataFrame,
+    *,
+    metric: str,
+    granularity: str,
+) -> None:
+    st.markdown('<div class="insight-stack-title">Ключевые показатели</div>', unsafe_allow_html=True)
+    valid = series.loc[series["value"].notna()].copy()
+    if valid.empty:
+        st.info("Для выбранного показателя нет данных.")
+        return
+
+    peak = valid.loc[valid["value"].idxmax()]
+    low = valid.loc[valid["value"].idxmin()]
+    overall_value, overall_note = _overall_metric(filtered, metric)
+    latest = valid.iloc[-1]
+    previous = valid.iloc[-2] if len(valid) >= 2 else None
+
+    _insight_card(
+        "Пик",
+        _metric_text(metric, peak["value"]),
+        f'{_period_label(peak["period"], granularity)} · N = {int(peak["n"])}',
+    )
+    _insight_card(
+        "Минимум",
+        _metric_text(metric, low["value"]),
+        f'{_period_label(low["period"], granularity)} · N = {int(low["n"])}',
+    )
+    _insight_card(
+        "За выбранный период",
+        _metric_text(metric, overall_value),
+        overall_note,
+    )
+    change_note = _change_note(
+        metric,
+        float(latest["value"]),
+        float(previous["value"]) if previous is not None else None,
+    )
+    _insight_card(
+        "Последний период",
+        _metric_text(metric, latest["value"]),
+        f'{_period_label(latest["period"], granularity)} · N = {int(latest["n"])} · {change_note}',
     )
 
 
@@ -287,19 +671,13 @@ def _ensure_filter_state(options: dict) -> None:
 
 
 def _reset_filters(options: dict) -> None:
-    # Remove widget-backed filter keys so Streamlit recreates them from defaults
-    # on the next rerun. This avoids stale filter state when switching sections.
-    keys = [
-        "analytics_period",
-        "analytics_service",
-        "analytics_request_type",
-        "analytics_priority",
-        "analytics_line",
-        "analytics_overdue",
-        "analytics_status",
-    ]
-    for key in keys:
-        st.session_state.pop(key, None)
+    st.session_state["analytics_period"] = (options["min_date"], options["max_date"])
+    st.session_state["analytics_service"] = "Все услуги"
+    st.session_state["analytics_request_type"] = "Все виды"
+    st.session_state["analytics_priority"] = "Все приоритеты"
+    st.session_state["analytics_line"] = "Все линии"
+    st.session_state["analytics_overdue"] = "Все"
+    st.session_state["analytics_status"] = "Все состояния"
 
 
 def _render_filters(df: pd.DataFrame) -> tuple[pd.DataFrame, dict]:
@@ -407,6 +785,7 @@ def _default_granularity(start_date, end_date) -> str:
     return "Месяц"
 
 
+
 def _render_overview(filtered: pd.DataFrame, filter_state: dict) -> None:
     with _profile("analytics.kpis"):
         kpis = calculate_kpis(filtered)
@@ -440,33 +819,47 @@ def _render_overview(filtered: pd.DataFrame, filter_state: dict) -> None:
 
     st.space("small")
     with st.container(key="analytics_chart_card"):
-        title_col, control_col = st.columns([0.55, 0.45], vertical_alignment="center")
-        with title_col:
-            st.markdown('<div class="card-title">Общая динамика</div>', unsafe_allow_html=True)
-        with control_col:
-            selected = st.segmented_control(
-                "Показатель обзора",
-                list(DYNAMIC_METRICS),
-                default="Обращения",
-                key="overview_metric",
-                label_visibility="collapsed",
-                width="stretch",
-            )
-
+        st.markdown('<div class="card-title">Общая динамика</div>', unsafe_allow_html=True)
         if filtered.empty:
             st.info("По выбранным фильтрам обращений не найдено.")
             return
 
         granularity_label = _default_granularity(filter_state["start_date"], filter_state["end_date"])
-        metric = DYNAMIC_METRICS[selected or "Обращения"]
-        with _profile("analytics.overview_timeseries"):
-            series = calculate_timeseries(
-                filtered,
-                metric=metric,
-                granularity=GRANULARITIES[granularity_label],
-            )
-            fig = make_timeseries_chart(series, metric=metric, height=325)
-        st.plotly_chart(fig, width="stretch", config={"displayModeBar": False})
+        granularity = GRANULARITIES[granularity_label]
+        st.markdown(
+            f'<div class="card-subtitle">Группировка: {escape(granularity_label.lower())}. '
+            'Пропуск означает отсутствие данных, а не нулевое значение.</div>',
+            unsafe_allow_html=True,
+        )
+
+        metrics = [
+            ("Обращения", "requests"),
+            ("Просрочки", "overdue_rate"),
+            ("Время обработки", "median_duration"),
+        ]
+        cols = st.columns(3, gap="small")
+        for col, (label, metric) in zip(cols, metrics):
+            with col:
+                series = _timeseries_details(filtered, metric=metric, granularity=granularity)
+                overall_value, overall_note = _overall_metric(filtered, metric)
+                st.markdown(f'<div class="mini-chart-title">{escape(label)}</div>', unsafe_allow_html=True)
+                st.markdown(
+                    f'<div class="mini-chart-value">{escape(_metric_text(metric, overall_value))}</div>',
+                    unsafe_allow_html=True,
+                )
+                st.markdown(
+                    f'<div class="mini-chart-note">{escape(overall_note)}</div>',
+                    unsafe_allow_html=True,
+                )
+                fig = _make_metric_figure(
+                    series,
+                    metric=metric,
+                    granularity=granularity,
+                    height=255,
+                    compact=True,
+                )
+                st.plotly_chart(fig, width="stretch", config={"displayModeBar": False})
+
 
 
 def _render_dynamics(df: pd.DataFrame, filtered: pd.DataFrame, filter_state: dict) -> None:
@@ -491,52 +884,84 @@ def _render_dynamics(df: pd.DataFrame, filtered: pd.DataFrame, filter_state: dic
         compare = st.toggle("Сравнить период", key="dynamics_compare")
 
     metric = DYNAMIC_METRICS[metric_label or "Обращения"]
-    granularity = GRANULARITIES[granularity_label or "Месяц"]
+    granularity_label = granularity_label or "Месяц"
+    granularity = GRANULARITIES[granularity_label]
 
-    with st.container(key="analytics_chart_card"):
-        st.markdown('<div class="card-title">Динамика</div>', unsafe_allow_html=True)
-        if filtered.empty:
-            st.info("По выбранным фильтрам обращений не найдено.")
-            return
+    if filtered.empty:
+        st.info("По выбранным фильтрам обращений не найдено.")
+        return
 
-        with _profile("analytics.dynamics_current"):
-            current = calculate_timeseries(filtered, metric=metric, granularity=granularity)
+    with _profile("analytics.dynamics_current"):
+        current = _timeseries_details(filtered, metric=metric, granularity=granularity)
 
-        previous_series = None
-        if compare:
-            current_start = filter_state["start_date"]
-            current_end = filter_state["end_date"]
-            inclusive_days = (current_end - current_start).days + 1
-            previous_end = current_start - timedelta(days=1)
-            previous_start = previous_end - timedelta(days=inclusive_days - 1)
+    previous_series = None
+    comparison_caption = None
+    if compare:
+        current_start = filter_state["start_date"]
+        current_end = filter_state["end_date"]
+        inclusive_days = (current_end - current_start).days + 1
+        previous_end = current_start - timedelta(days=1)
+        previous_start = previous_end - timedelta(days=inclusive_days - 1)
 
-            previous_filters = dict(filter_state)
-            previous_filters["start_date"] = previous_start
-            previous_filters["end_date"] = previous_end
-            previous_df = apply_filters(df, **previous_filters)
-            previous_series = calculate_timeseries(
-                previous_df,
-                metric=metric,
-                granularity=granularity,
+        previous_filters = dict(filter_state)
+        previous_filters["start_date"] = previous_start
+        previous_filters["end_date"] = previous_end
+        previous_df = apply_filters(df, **previous_filters)
+        previous_series = _timeseries_details(
+            previous_df,
+            metric=metric,
+            granularity=granularity,
+        )
+        if not previous_series.empty:
+            previous_series = previous_series.copy()
+            previous_series["period"] = previous_series["period"] + pd.Timedelta(days=inclusive_days)
+        comparison_caption = (
+            f"Сравнение с равным предыдущим интервалом: "
+            f"{previous_start:%d.%m.%Y}–{previous_end:%d.%m.%Y}."
+        )
+
+    left, right = st.columns([0.76, 0.24], gap="medium")
+    with left:
+        with st.container(key="analytics_chart_card"):
+            title_map = {
+                "requests": "Динамика обращений",
+                "overdue_rate": "Доля просроченных обращений",
+                "median_duration": "Медианное время обработки",
+            }
+            subtitle_map = {
+                "requests": "Количество зарегистрированных обращений по выбранным периодам.",
+                "overdue_rate": "Доля просрочек; в подсказке показаны число просрочек и знаменатель N.",
+                "median_duration": "Медиана длительности; N показывает число обращений с доступной длительностью.",
+            }
+            st.markdown(
+                f'<div class="card-title">{escape(title_map[metric])}</div>',
+                unsafe_allow_html=True,
             )
-            # Shift to the current x-axis so equal-length periods overlay cleanly.
-            if not previous_series.empty:
-                previous_series = previous_series.copy()
-                previous_series["period"] = previous_series["period"] + pd.Timedelta(days=inclusive_days)
-
-            st.caption(
-                f"Сравнение с равным предыдущим интервалом: "
-                f"{previous_start:%d.%m.%Y}–{previous_end:%d.%m.%Y}."
+            st.markdown(
+                f'<div class="card-subtitle">{escape(subtitle_map[metric])} '
+                'Пропуск — нет данных, не ноль.</div>',
+                unsafe_allow_html=True,
             )
+            if comparison_caption:
+                st.caption(comparison_caption)
 
-        with _profile("analytics.dynamics_chart"):
-            fig = make_timeseries_chart(
+            fig = _make_metric_figure(
                 current,
                 metric=metric,
+                granularity=granularity,
                 previous=previous_series,
-                height=430,
+                height=455,
+                compact=False,
             )
-        st.plotly_chart(fig, width="stretch", config={"displayModeBar": False})
+            st.plotly_chart(fig, width="stretch", config={"displayModeBar": False})
+
+    with right:
+        _render_metric_insights(
+            filtered,
+            current,
+            metric=metric,
+            granularity=granularity,
+        )
 
 
 def _render_breakdowns(filtered: pd.DataFrame) -> None:
@@ -793,6 +1218,12 @@ def _export_bytes(filtered: pd.DataFrame) -> bytes:
     return export_view(filtered).to_csv(index=False).encode("utf-8-sig")
 
 
+def _export_filename(filter_state: dict) -> str:
+    start = filter_state["start_date"]
+    end = filter_state["end_date"]
+    return f"analytics_{start:%Y-%m-%d}_{end:%Y-%m-%d}.csv"
+
+
 def render_analytics_tab(data_path: str | Path) -> None:
     """Render the complete analytics page from the approved mockup structure."""
     st.markdown(ANALYTICS_CSS, unsafe_allow_html=True)
@@ -803,6 +1234,9 @@ def render_analytics_tab(data_path: str | Path) -> None:
         except (FileNotFoundError, AnalyticsDataError, ValueError) as exc:
             st.error(f"Не удалось подготовить данные аналитики: {exc}")
             return
+
+    # One consistent user-facing value instead of technical placeholders such as --).
+    df = _normalize_display_categories(df)
 
     title_col, export_col = st.columns([0.82, 0.18], vertical_alignment="center")
     with title_col:
@@ -834,11 +1268,11 @@ def render_analytics_tab(data_path: str | Path) -> None:
         st.download_button(
             "Экспорт",
             data=_export_bytes(filtered),
-            file_name="analytics_filtered.csv",
+            file_name=_export_filename(filter_state),
             mime="text/csv",
             icon=":material/download:",
             width="stretch",
-            help="Скачать текущую отфильтрованную выборку.",
+            help=f"Скачать текущую выборку: {len(filtered):,} обращений.".replace(",", " "),
         )
 
     selected = section or "Обзор"

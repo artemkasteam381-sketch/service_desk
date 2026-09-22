@@ -9,6 +9,7 @@ from numbers import Real
 
 import pandas as pd
 import streamlit as st
+import re
 
 from src.classification.ui import render_classification_panel
 
@@ -25,10 +26,36 @@ _HISTORY = 'dispatcher_history_data'
 _ACTIVE = 'dispatcher_active_card'
 
 
+_MISSING_VALUES = {
+    '',
+    '-',
+    '--',
+    '---',
+    '--)',
+    '---)',
+    'nan',
+    'none',
+    'null',
+    'не указано',
+    'не указан',
+    'не определено',
+    'не определена',
+}
+
+
 def _value(value):
     if value is None or pd.isna(value):
         return ''
-    return str(value).strip()
+
+    text = str(value).strip()
+
+    if text.casefold() in _MISSING_VALUES:
+        return ''
+
+    if re.fullmatch(r'[-–—]+\)?', text):
+        return ''
+
+    return text
 
 
 def _ticket_number(value):
