@@ -2,7 +2,7 @@ import streamlit as st
 
 from src.ui.dispatcher_tab import render_dispatcher_tab
 from src.ui.analytics_tab import render_analytics_tab
-
+from src.classification.ui import render_classification_panel
 
 st.set_page_config(
     page_title="Анализ обращений поддержки",
