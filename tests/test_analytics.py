@@ -265,3 +265,18 @@ def test_case_details():
     assert len(clarifications) == 75
     assert clarifications["Номер запроса"].is_unique
     assert clarifications["Количество уточнений"].min() >= 4
+
+
+def test_period_filter():
+    from src.analytics.filters import filter_data
+
+    df = prepare_data()
+
+    result = filter_data(
+        df,
+        start_date="2025-03-01",
+        end_date="2025-03-31",
+    )
+
+    assert len(result) == 1299
+    assert result["Дата регистрации"].dt.month.eq(3).all()
