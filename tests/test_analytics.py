@@ -172,3 +172,27 @@ def test_data_quality_flags():
     assert counts["Расхождение с длительностью SLA"] == 5
     assert counts["Расхождение с крайним сроком"] == 3
     assert len(issue_records(flags)) == 431
+
+
+
+def test_monthly_dynamics():
+    from src.analytics.time_dynamics import monthly_dynamics
+
+    result = monthly_dynamics(prepare_data())
+
+    assert result["Месяц"].tolist() == [
+        "2025-01",
+        "2025-02",
+        "2025-03",
+        "2025-04",
+        "2025-05",
+        "2025-06",
+        "2025-07",
+        "2025-08",
+    ]
+
+    assert int(result["Обращения"].sum()) == 1931
+    assert int(result["Просрочки"].sum()) == 25
+    assert int(result["Пропуски_времени"].sum()) == 1
+    assert int(result["Нет данных"].sum()) == 3
+    assert int(result["Малая выборка"].sum()) == 3
