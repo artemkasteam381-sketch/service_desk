@@ -81,9 +81,13 @@ def priority_analysis(df):
     return result
 
 
-def processing_time_analysis(df):
+def processing_time_analysis(
+    df,
+    group_column="service_analytics",
+    result_column="Услуга",
+):
     result = (
-        df.groupby("service_analytics", dropna=False)
+        df.groupby(group_column, dropna=False)
         .agg(
             Обращения=("Номер запроса", "nunique"),
             Обращения_с_временем=("sla_actual_seconds", "count"),
@@ -96,12 +100,13 @@ def processing_time_analysis(df):
             Максимум_часов=("sla_actual_seconds", "max"),
         )
         .reset_index()
-        .rename(columns={"service_analytics": "Услуга"})
+        .rename(columns={group_column: result_column})
     )
 
     result["Пропуски_времени"] = (
         result["Обращения"] - result["Обращения_с_временем"]
     )
+    result["Малая выборка"] = result["Обращения"] < 30
 
     time_columns = [
         "Среднее_часов",
@@ -124,7 +129,13 @@ if __name__ == "__main__":
         "service_load.csv": service_analysis(df),
         "request_types.csv": request_type_analysis(df),
         "priority_sla.csv": priority_analysis(df),
-        "processing_time.csv": processing_time_analysis(df)
+        "processing_time.csv": processing_time_analysis(df),
+        "request_type_processing_time.csv": processing_time_analysis(
+            df, "Вид запроса", "Вид запроса"
+        ),
+        "priority_processing_time.csv": processing_time_analysis(
+            df, "Приоритет", "Приоритет"
+        )
     }
 
     for filename, table in tables.items():
