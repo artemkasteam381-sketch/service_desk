@@ -196,3 +196,51 @@ def test_monthly_dynamics():
     assert int(result["Пропуски_времени"].sum()) == 1
     assert int(result["Нет данных"].sum()) == 3
     assert int(result["Малая выборка"].sum()) == 3
+
+
+def test_sla_risk_confidence_rules():
+    from src.analytics.sla_risk import calculate_risk, line_risk
+
+    df = prepare_data()
+
+    services = calculate_risk(
+        df,
+        "service_analytics",
+    ).set_index("service_analytics")
+
+    assert bool(
+        services.loc[
+            "Партионный прием (Priem.pochta.ru)",
+            "Повышенный риск",
+        ]
+    )
+
+    lines = line_risk(df)
+
+    risky_lines = set(
+        lines.loc[
+            lines["Повышенный риск"],
+            "Линия",
+        ]
+    )
+
+    assert risky_lines == {"2 линия", "3 линия"}
+
+    line_four = lines.set_index("Линия").loc["4 линия"]
+
+    assert bool(line_four["Малая выборка"])
+    assert not bool(line_four["Повышенный риск"])
+
+    request_types = calculate_risk(df, "Вид запроса")
+
+    risky_types = set(
+        request_types.loc[
+            request_types["Повышенный риск"],
+            "Вид запроса",
+        ]
+    )
+
+    assert risky_types == {
+        "Ошибки загрузки страницы/зависания",
+        "Формирование и закрытие емкостей",
+    }
